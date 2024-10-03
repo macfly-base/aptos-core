@@ -10,7 +10,7 @@ const DEFAULT_VALUE: f64 = 0.0;
 /// ### Arguments
 ///
 /// * `input` - All the equations
-pub fn total_num_rows(input: Vec<BTreeMap<String, u64>>) -> usize {
+pub fn total_num_rows(input: &[BTreeMap<String, u64>]) -> usize {
     input.len()
 }
 
@@ -19,12 +19,8 @@ pub fn total_num_rows(input: Vec<BTreeMap<String, u64>>) -> usize {
 /// ### Arguments
 ///
 /// * `input` - All the equations in the simplified mapping version
-pub fn total_num_of_cols(input: Vec<BTreeMap<String, u64>>) -> usize {
-    let mut union_btreemap: BTreeMap<String, u64> = BTreeMap::new();
-    for map in input {
-        union_btreemap.extend(map);
-    }
-    union_btreemap.len()
+pub fn total_num_of_cols(input: &[BTreeMap<String, u64>]) -> usize {
+    input.iter().flat_map(|map| map.keys()).collect::<BTreeMap<_, _>>().len()
 }
 
 /// Creates a generic template for BTreeMaps so we can easily
@@ -33,18 +29,14 @@ pub fn total_num_of_cols(input: Vec<BTreeMap<String, u64>>) -> usize {
 /// ### Arguments
 ///
 /// * `input` - All the equations in the simplified mapping version
-pub fn generic_map(input: Vec<BTreeMap<String, u64>>) -> BTreeMap<String, f64> {
-    let mut union_btreemap: BTreeMap<String, u64> = BTreeMap::new();
-    for map in input {
-        union_btreemap.extend(map);
-    }
-
-    // sort BTree lexicographically
-    let sorted_map: BTreeMap<String, u64> = union_btreemap.into_iter().collect();
-
-    let keys: Vec<String> = sorted_map.keys().map(|key| key.to_string()).collect();
-    let generic: BTreeMap<String, f64> = keys.into_iter().map(|key| (key, DEFAULT_VALUE)).collect();
-    generic
+pub fn generic_map(input: &[BTreeMap<String, u64>]) -> BTreeMap<String, f64> {
+    input
+        .iter()
+        .flat_map(|map| map.keys().cloned())
+        .collect::<BTreeMap<String, f64>>()
+        .into_iter()
+        .map(|(key, _)| (key, DEFAULT_VALUE))
+        .collect()
 }
 
 /// Standardize all maps into a generic map
@@ -52,18 +44,18 @@ pub fn generic_map(input: Vec<BTreeMap<String, u64>>) -> BTreeMap<String, f64> {
 /// ### Arguments
 ///
 /// * `input` - All the equations in the simplified mapping version
-pub fn convert_to_generic_map(input: Vec<BTreeMap<String, u64>>) -> Vec<BTreeMap<String, f64>> {
-    let mut generic_maps: Vec<BTreeMap<String, f64>> = Vec::new();
-    for map in &input {
-        let mut generic = generic_map(input.clone());
-        for (key, value) in map.iter() {
+pub fn convert_to_generic_map(input: &[BTreeMap<String, u64>]) -> Vec<BTreeMap<String, f64>> {
+    let template = generic_map(input);
+    input
+        .iter()
+        .map(|map| {
+            let mut generic = template.clone();
+            for (key, value) in map {
+                generic.entry(key.clone()).and_modify(|v| *v = *value as f64);
+            }
             generic
-                .entry(key.to_string())
-                .and_modify(|v| *v = *value as f64);
-        }
-        generic_maps.push(generic);
-    }
-    generic_maps
+        })
+        .collect()
 }
 
 /// Transform into standardized mapping before converting to a vector
@@ -71,16 +63,17 @@ pub fn convert_to_generic_map(input: Vec<BTreeMap<String, u64>>) -> Vec<BTreeMap
 /// ### Arguments
 ///
 /// * `input` - All the equations in the simplified mapping version
-pub fn convert_to_matrix_format(input: Vec<BTreeMap<String, u64>>) -> Vec<Vec<f64>> {
-    let ncols = total_num_of_cols(input.clone());
-    let mut result: Vec<Vec<f64>> = Vec::new();
+pub fn convert_to_matrix_format(input: &[BTreeMap<String, u64>]) -> Vec<Vec<f64>> {
+    let ncols = total_num_of_cols(input);
     let generic_maps = convert_to_generic_map(input);
-    //println!("KEYS {:?}\n", generic_maps);
-    for eq in generic_maps {
-        let vec_format: Vec<f64> = eq.values().cloned().collect();
-        assert_eq!(vec_format.len(), ncols);
-        result.push(vec_format);
-    }
 
-    result
+    generic_maps
+        .into_iter()
+        .map(|eq| {
+            let vec_format: Vec<f64> = eq.into_values().collect();
+            assert_eq!(vec_format.len(), ncols);
+            vec_format
+        })
+        .collect()
 }
+  
